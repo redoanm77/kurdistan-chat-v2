@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "./contexts/AuthContext";
-import colors from "./lib/colors";
+import { colors } from "./lib/colors";
 
 export default function Index() {
   const { user, loading } = useAuth();

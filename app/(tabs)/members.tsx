@@ -6,7 +6,7 @@ import {
 import { collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import colors from "../lib/colors";
+import { colors } from "../lib/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";

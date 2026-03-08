@@ -8,7 +8,7 @@ import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, storage } from "../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useAuth } from "../contexts/AuthContext";
-import colors from "../lib/colors";
+import { colors } from "../lib/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";

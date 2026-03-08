@@ -7,22 +7,19 @@ import {
 import {
   GoogleAuthProvider, signInWithCredential,
   PhoneAuthProvider, signInWithPhoneNumber,
-  RecaptchaVerifier,
 } from "firebase/auth";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { auth } from "../lib/firebase";
 import { router } from "expo-router";
-import colors from "../lib/colors";
+import { colors } from "../lib/colors";
 import { Ionicons } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
 
-const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663049967311/8vHBY4AKMjVmt7ujvhWDcb/kurdistan-chat-logo_b0e286e0.png";
-
 // Configure Google Sign-In
 GoogleSignin.configure({
   webClientId: "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
-  offlineAccess: true,
+  offlineAccess: false,
 });
 
 type Screen = "main" | "phone" | "otp";
@@ -32,29 +29,31 @@ export default function LoginScreen() {
   const [screen, setScreen] = useState<Screen>("main");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
-  const [verificationId, setVerificationId] = useState("");
+  const [confirmResult, setConfirmResult] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   // Google Sign-In
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setErrorMsg("");
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const userInfo = await GoogleSignin.signIn();
+      await GoogleSignin.signIn();
       const { idToken } = await GoogleSignin.getTokens();
-      if (!idToken) throw new Error("No ID token");
+      if (!idToken) throw new Error("No ID token received");
       const credential = GoogleAuthProvider.credential(idToken);
       await signInWithCredential(auth, credential);
-      router.replace("/(tabs)/home");
+      // Auth state change in AuthContext will handle navigation
     } catch (error: any) {
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // User cancelled
+        // User cancelled - no error
       } else if (error.code === statusCodes.IN_PROGRESS) {
-        Alert.alert("جارٍ تسجيل الدخول...");
+        setErrorMsg("تسجيل الدخول جارٍ بالفعل...");
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert("خطأ", "خدمات Google Play غير متوفرة");
+        setErrorMsg("خدمات Google Play غير متوفرة على هذا الجهاز");
       } else {
-        Alert.alert("خطأ", "فشل تسجيل الدخول بـ Google. حاول مرة أخرى.");
-        console.error("Google Sign-In error:", error);
+        setErrorMsg("فشل تسجيل الدخول بـ Google. حاول مرة أخرى.");
+        console.error("Google Sign-In error:", JSON.stringify(error));
       }
     } finally {
       setLoading(false);
@@ -63,20 +62,29 @@ export default function LoginScreen() {
 
   // Phone - Send OTP
   const handleSendOTP = async () => {
-    const phone = phoneNumber.trim();
-    if (!phone || phone.length < 8) {
-      Alert.alert("خطأ", "يرجى إدخال رقم هاتف صحيح مع رمز الدولة (مثال: +9647501234567)");
+    let phone = phoneNumber.trim();
+    if (!phone) {
+      setErrorMsg("يرجى إدخال رقم الهاتف");
       return;
     }
+    if (!phone.startsWith("+")) {
+      phone = "+" + phone;
+    }
     setLoading(true);
+    setErrorMsg("");
     try {
       const confirmation = await signInWithPhoneNumber(auth, phone);
-      setVerificationId(confirmation.verificationId);
+      setConfirmResult(confirmation);
       setScreen("otp");
-      Alert.alert("تم الإرسال", `تم إرسال رمز التحقق إلى ${phone}`);
     } catch (error: any) {
-      console.error("Phone auth error:", error);
-      Alert.alert("خطأ", "فشل إرسال رمز التحقق. تأكد من رقم الهاتف وحاول مرة أخرى.");
+      console.error("Phone auth error:", error.code, error.message);
+      if (error.code === "auth/invalid-phone-number") {
+        setErrorMsg("رقم الهاتف غير صحيح. استخدم الصيغة: +9647501234567");
+      } else if (error.code === "auth/too-many-requests") {
+        setErrorMsg("طلبات كثيرة جداً. انتظر قليلاً وحاول مجدداً");
+      } else {
+        setErrorMsg("فشل إرسال الرمز: " + (error.message || error.code));
+      }
     } finally {
       setLoading(false);
     }
@@ -84,18 +92,24 @@ export default function LoginScreen() {
 
   // Phone - Verify OTP
   const handleVerifyOTP = async () => {
-    if (!otp || otp.length < 4) {
-      Alert.alert("خطأ", "يرجى إدخال رمز التحقق");
+    if (!otp || otp.length < 6) {
+      setErrorMsg("يرجى إدخال الرمز المكون من 6 أرقام");
       return;
     }
     setLoading(true);
+    setErrorMsg("");
     try {
-      const credential = PhoneAuthProvider.credential(verificationId, otp);
-      await signInWithCredential(auth, credential);
-      router.replace("/(tabs)/home");
+      await confirmResult.confirm(otp);
+      // Auth state change in AuthContext will handle navigation
     } catch (error: any) {
-      console.error("OTP verify error:", error);
-      Alert.alert("خطأ", "رمز التحقق غير صحيح. حاول مرة أخرى.");
+      console.error("OTP verify error:", error.code, error.message);
+      if (error.code === "auth/invalid-verification-code") {
+        setErrorMsg("رمز التحقق غير صحيح");
+      } else if (error.code === "auth/code-expired") {
+        setErrorMsg("انتهت صلاحية الرمز. أعد إرسال الرمز");
+      } else {
+        setErrorMsg("فشل التحقق: " + (error.message || ""));
+      }
     } finally {
       setLoading(false);
     }
@@ -109,7 +123,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Image source={{ uri: LOGO_URL }} style={styles.logo} resizeMode="contain" />
+          <Image source={require("../../assets/icon.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.appName}>Kurdistan Chat</Text>
           <Text style={styles.tagline}>تواصل مع الكرد حول العالم</Text>
         </View>
@@ -120,7 +134,14 @@ export default function LoginScreen() {
             <Text style={styles.cardTitle}>تسجيل الدخول</Text>
             <Text style={styles.cardSubtitle}>اختر طريقة تسجيل الدخول</Text>
 
-            {/* Google Sign-In Button */}
+            {errorMsg ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
+
+            {/* Google Sign-In Button */
             <TouchableOpacity
               style={[styles.googleBtn, loading && styles.btnDisabled]}
               onPress={handleGoogleSignIn}
@@ -167,9 +188,17 @@ export default function LoginScreen() {
 
             <Text style={styles.cardTitle}>رقم الهاتف</Text>
             <Text style={styles.cardSubtitle}>
-              أدخل رقم هاتفك مع رمز الدولة{"\n"}
+              أدخل رقم هاتفك مع رمز الدولة{"
+"}
               مثال: +9647501234567
             </Text>
+
+            {errorMsg ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.inputWrapper}>
               <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
@@ -210,9 +239,17 @@ export default function LoginScreen() {
 
             <Text style={styles.cardTitle}>رمز التحقق</Text>
             <Text style={styles.cardSubtitle}>
-              تم إرسال رمز التحقق إلى{"\n"}
+              تم إرسال رمز التحقق إلى{"
+"}
               <Text style={{ color: colors.primary }}>{phoneNumber}</Text>
             </Text>
+
+            {errorMsg ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.inputWrapper}>
               <Ionicons name="key-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
@@ -436,5 +473,19 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     color: colors.primary,
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239,68,68,0.1)",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    color: "#ef4444",
+    fontSize: 13,
+    flex: 1,
   },
 });
