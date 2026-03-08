@@ -2,75 +2,100 @@ import React, { useState } from "react";
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
-  ScrollView, Dimensions,
+  ScrollView, TextInput, Dimensions,
 } from "react-native";
 import {
   GoogleAuthProvider, signInWithCredential,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendEmailVerification,
+  PhoneAuthProvider, signInWithPhoneNumber,
+  RecaptchaVerifier,
 } from "firebase/auth";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { auth } from "../lib/firebase";
 import { router } from "expo-router";
 import colors from "../lib/colors";
 import { Ionicons } from "@expo/vector-icons";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663049967311/8vHBY4AKMjVmt7ujvhWDcb/kurdistan-chat-logo_b0e286e0.png";
 
+// Configure Google Sign-In
+GoogleSignin.configure({
+  webClientId: "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+  offlineAccess: true,
+});
+
+type Screen = "main" | "phone" | "otp";
+
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
+  const [screen, setScreen] = useState<Screen>("main");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otp, setOtp] = useState("");
+  const [verificationId, setVerificationId] = useState("");
 
-  const handleEmailLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("خطأ", "يرجى إدخال البريد الإلكتروني وكلمة المرور");
-      return;
-    }
+  // Google Sign-In
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const userInfo = await GoogleSignin.signIn();
+      const { idToken } = await GoogleSignin.getTokens();
+      if (!idToken) throw new Error("No ID token");
+      const credential = GoogleAuthProvider.credential(idToken);
+      await signInWithCredential(auth, credential);
       router.replace("/(tabs)/home");
-    } catch (err: any) {
-      const msg = err.code === "auth/user-not-found" || err.code === "auth/wrong-password"
-        ? "البريد الإلكتروني أو كلمة المرور غير صحيحة"
-        : err.code === "auth/too-many-requests"
-        ? "تم تجاوز عدد المحاولات، حاول لاحقاً"
-        : "فشل تسجيل الدخول";
-      Alert.alert("خطأ", msg);
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        Alert.alert("جارٍ تسجيل الدخول...");
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert("خطأ", "خدمات Google Play غير متوفرة");
+      } else {
+        Alert.alert("خطأ", "فشل تسجيل الدخول بـ Google. حاول مرة أخرى.");
+        console.error("Google Sign-In error:", error);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("خطأ", "يرجى إدخال البريد الإلكتروني وكلمة المرور");
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert("خطأ", "كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+  // Phone - Send OTP
+  const handleSendOTP = async () => {
+    const phone = phoneNumber.trim();
+    if (!phone || phone.length < 8) {
+      Alert.alert("خطأ", "يرجى إدخال رقم هاتف صحيح مع رمز الدولة (مثال: +9647501234567)");
       return;
     }
     setLoading(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      await sendEmailVerification(cred.user);
-      Alert.alert(
-        "تم إنشاء الحساب",
-        "تم إرسال رسالة تحقق إلى بريدك الإلكتروني. يرجى التحقق قبل تسجيل الدخول.",
-        [{ text: "حسناً", onPress: () => setTab("login") }]
-      );
-    } catch (err: any) {
-      const msg = err.code === "auth/email-already-in-use"
-        ? "هذا البريد الإلكتروني مستخدم بالفعل"
-        : err.code === "auth/invalid-email"
-        ? "البريد الإلكتروني غير صحيح"
-        : "فشل إنشاء الحساب";
-      Alert.alert("خطأ", msg);
+      const confirmation = await signInWithPhoneNumber(auth, phone);
+      setVerificationId(confirmation.verificationId);
+      setScreen("otp");
+      Alert.alert("تم الإرسال", `تم إرسال رمز التحقق إلى ${phone}`);
+    } catch (error: any) {
+      console.error("Phone auth error:", error);
+      Alert.alert("خطأ", "فشل إرسال رمز التحقق. تأكد من رقم الهاتف وحاول مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Phone - Verify OTP
+  const handleVerifyOTP = async () => {
+    if (!otp || otp.length < 4) {
+      Alert.alert("خطأ", "يرجى إدخال رمز التحقق");
+      return;
+    }
+    setLoading(true);
+    try {
+      const credential = PhoneAuthProvider.credential(verificationId, otp);
+      await signInWithCredential(auth, credential);
+      router.replace("/(tabs)/home");
+    } catch (error: any) {
+      console.error("OTP verify error:", error);
+      Alert.alert("خطأ", "رمز التحقق غير صحيح. حاول مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -82,91 +107,149 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header with gradient-like background */}
+        {/* Header */}
         <View style={styles.header}>
           <Image source={{ uri: LOGO_URL }} style={styles.logo} resizeMode="contain" />
           <Text style={styles.appName}>Kurdistan Chat</Text>
           <Text style={styles.tagline}>تواصل مع الكرد حول العالم</Text>
         </View>
 
-        {/* Card */}
-        <View style={styles.card}>
-          {/* Tabs */}
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, tab === "login" && styles.tabActive]}
-              onPress={() => setTab("login")}
-            >
-              <Text style={[styles.tabText, tab === "login" && styles.tabTextActive]}>
-                تسجيل الدخول
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, tab === "register" && styles.tabActive]}
-              onPress={() => setTab("register")}
-            >
-              <Text style={[styles.tabText, tab === "register" && styles.tabTextActive]}>
-                حساب جديد
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* Main Screen */}
+        {screen === "main" && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>تسجيل الدخول</Text>
+            <Text style={styles.cardSubtitle}>اختر طريقة تسجيل الدخول</Text>
 
-          {/* Form */}
-          <View style={styles.form}>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInputCustom
-                placeholder="البريد الإلكتروني"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+            {/* Google Sign-In Button */}
+            <TouchableOpacity
+              style={[styles.googleBtn, loading && styles.btnDisabled]}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <View style={styles.googleIcon}>
+                    <Text style={styles.googleIconText}>G</Text>
+                  </View>
+                  <Text style={styles.googleBtnText}>تسجيل الدخول بـ Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>أو</Text>
+              <View style={styles.dividerLine} />
             </View>
 
+            {/* Phone Sign-In Button */}
+            <TouchableOpacity
+              style={styles.phoneBtn}
+              onPress={() => setScreen("phone")}
+              disabled={loading}
+            >
+              <Ionicons name="call-outline" size={22} color={colors.primary} />
+              <Text style={styles.phoneBtnText}>تسجيل الدخول برقم الهاتف</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Phone Number Screen */}
+        {screen === "phone" && (
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => setScreen("main")}>
+              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+              <Text style={styles.backText}>رجوع</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.cardTitle}>رقم الهاتف</Text>
+            <Text style={styles.cardSubtitle}>
+              أدخل رقم هاتفك مع رمز الدولة{"\n"}
+              مثال: +9647501234567
+            </Text>
+
             <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInputCustom
-                placeholder="كلمة المرور"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPass}
+              <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="+9647501234567"
+                placeholderTextColor={colors.textMuted}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+                textAlign="left"
+                color={colors.textPrimary}
+                autoFocus
               />
-              <TouchableOpacity onPress={() => setShowPass(!showPass)} style={styles.eyeBtn}>
-                <Ionicons name={showPass ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
-              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
               style={[styles.submitBtn, loading && styles.btnDisabled]}
-              onPress={tab === "login" ? handleEmailLogin : handleRegister}
+              onPress={handleSendOTP}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.submitBtnText}>
-                  {tab === "login" ? "تسجيل الدخول" : "إنشاء حساب"}
-                </Text>
+                <Text style={styles.submitBtnText}>إرسال رمز التحقق</Text>
               )}
             </TouchableOpacity>
           </View>
+        )}
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>أو</Text>
-            <View style={styles.dividerLine} />
-          </View>
+        {/* OTP Screen */}
+        {screen === "otp" && (
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => setScreen("phone")}>
+              <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+              <Text style={styles.backText}>رجوع</Text>
+            </TouchableOpacity>
 
-          {/* Social Login Info */}
-          <View style={styles.socialInfo}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
-            <Text style={styles.socialInfoText}>
-              لتسجيل الدخول بـ Google، استخدم الموقع kurdichat.vip
+            <Text style={styles.cardTitle}>رمز التحقق</Text>
+            <Text style={styles.cardSubtitle}>
+              تم إرسال رمز التحقق إلى{"\n"}
+              <Text style={{ color: colors.primary }}>{phoneNumber}</Text>
             </Text>
+
+            <View style={styles.inputWrapper}>
+              <Ionicons name="key-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="أدخل الرمز المكون من 6 أرقام"
+                placeholderTextColor={colors.textMuted}
+                value={otp}
+                onChangeText={setOtp}
+                keyboardType="number-pad"
+                maxLength={6}
+                textAlign="center"
+                color={colors.textPrimary}
+                autoFocus
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitBtn, loading && styles.btnDisabled]}
+              onPress={handleVerifyOTP}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.submitBtnText}>تأكيد</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.resendBtn}
+              onPress={() => { setScreen("phone"); setOtp(""); }}
+            >
+              <Text style={styles.resendText}>إعادة إرسال الرمز</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        )}
 
         {/* Footer */}
         <Text style={styles.footer}>
@@ -177,25 +260,6 @@ export default function LoginScreen() {
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-}
-
-// Custom TextInput component
-import { TextInput } from "react-native";
-function TextInputCustom({ placeholder, value, onChangeText, keyboardType, autoCapitalize, secureTextEntry }: any) {
-  return (
-    <TextInput
-      style={styles.input}
-      placeholder={placeholder}
-      placeholderTextColor={colors.textMuted}
-      value={value}
-      onChangeText={onChangeText}
-      keyboardType={keyboardType}
-      autoCapitalize={autoCapitalize || "none"}
-      secureTextEntry={secureTextEntry}
-      textAlign="right"
-      color={colors.textPrimary}
-    />
   );
 }
 
@@ -238,65 +302,44 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  tabs: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 8,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: "center",
-    borderRadius: 10,
-  },
-  tabActive: {
-    backgroundColor: colors.primary,
-  },
-  tabText: {
+  cardSubtitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: colors.textMuted,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 28,
+    lineHeight: 22,
   },
-  tabTextActive: {
-    color: "#fff",
-  },
-  form: {
-    gap: 14,
-  },
-  inputWrapper: {
+  googleBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    textAlign: "right",
-  },
-  eyeBtn: {
-    padding: 4,
-  },
-  submitBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+    justifyContent: "center",
+    backgroundColor: "#4285F4",
+    borderRadius: 14,
     paddingVertical: 15,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  googleIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#fff",
     alignItems: "center",
-    marginTop: 6,
+    justifyContent: "center",
   },
-  btnDisabled: {
-    opacity: 0.6,
+  googleIconText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#4285F4",
   },
-  submitBtnText: {
+  googleBtnText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
@@ -316,19 +359,73 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     fontSize: 13,
   },
-  socialInfo: {
+  phoneBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    gap: 12,
+    backgroundColor: "transparent",
+  },
+  phoneBtnText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  backBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 12,
+    marginBottom: 20,
   },
-  socialInfoText: {
+  backText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
     flex: 1,
-    color: colors.textSecondary,
-    fontSize: 12,
-    textAlign: "right",
+    paddingVertical: 14,
+    fontSize: 16,
+  },
+  submitBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: "center",
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  submitBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  resendBtn: {
+    alignItems: "center",
+    marginTop: 16,
+    padding: 8,
+  },
+  resendText: {
+    color: colors.primary,
+    fontSize: 14,
   },
   footer: {
     textAlign: "center",
