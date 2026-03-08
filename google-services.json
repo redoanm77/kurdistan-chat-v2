@@ -1,0 +1,167 @@
+{
+  "project_info": {
+    "project_number": "814756551942",
+    "firebase_url": "https://kurd-4cc81-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "kurd-4cc81",
+    "storage_bucket": "kurd-4cc81.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:814756551942:android:b4debfb4fcb2d1bee61287",
+        "android_client_info": {
+          "package_name": "com.kurdichat.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "814756551942-b1nch7346jg7bo63c8hdj856a1grbogt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kurdichat.app",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "814756551942-hb57rlc5i2rustg3bebq948bgah4i222.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kurdichat.app",
+            "certificate_hash": "3cd2608ef8286ad8e44ee7056baf70924d0a4385"
+          }
+        },
+        {
+          "client_id": "814756551942-hdpbq64r2bf0chor4du4bihhlpceht1r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kurdichat.app",
+            "certificate_hash": "a435b78192e166e4da0cf771e35f5f88200f12db"
+          }
+        },
+        {
+          "client_id": "814756551942-rn4j2cm60lfjd61h1q9m92tbufdgk2s4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kurdichat.app",
+            "certificate_hash": "c45b7f81ee1ebd75c29b5fa56aef330b7035ce85"
+          }
+        },
+        {
+          "client_id": "814756551942-st7tson22194mh59ds41ek7lgjca3tlr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.kurdichat.app",
+            "certificate_hash": "b52a9fc96d35e63833888757b4a8cc20c943e537"
+          }
+        },
+        {
+          "client_id": "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCC2aH21670Khp95Hs1MoEiAupOheKHvAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "814756551942-6cq66j4f81isjogmlt0q9rdr6d9b2ive.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.ilvplcpc01"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:814756551942:android:9a3763a6e701806ae61287",
+        "android_client_info": {
+          "package_name": "com.mycompany.ilvplcpc01"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCC2aH21670Khp95Hs1MoEiAupOheKHvAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "814756551942-6cq66j4f81isjogmlt0q9rdr6d9b2ive.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.ilvplcpc01"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:814756551942:android:cf9150b055e14c3de61287",
+        "android_client_info": {
+          "package_name": "com.mycompany.kurd"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "814756551942-0eqb7h94u8ni3fhvgaisq3b3ihivrikk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mycompany.kurd",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCC2aH21670Khp95Hs1MoEiAupOheKHvAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "814756551942-hufr4kuerljf88jdq73801p5cfodtrhf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "814756551942-6cq66j4f81isjogmlt0q9rdr6d9b2ive.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.ilvplcpc01"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
